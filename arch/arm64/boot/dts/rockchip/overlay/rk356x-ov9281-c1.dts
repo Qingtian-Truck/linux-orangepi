@@ -14,7 +14,7 @@
 	};
 
 	fragment@1 {
-		target = <&ov5647>;
+		target = <&ov9281>;
 
 		__overlay__ {
 			status = "okay";
@@ -62,6 +62,20 @@
 
 	fragment@7 {
 		target = <&rkisp_vir0>;
+		__overlay__ {
+        		status = "okay";
+		};
+	};
+
+	fragment@8 {
+		target = <&rkcif>;
+		__overlay__ {
+        		status = "okay";
+		};
+	};
+
+	fragment@9 {
+		target = <&rkcif_mmu>;
 		__overlay__ {
         		status = "okay";
 		};

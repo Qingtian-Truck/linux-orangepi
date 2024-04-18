@@ -355,13 +355,8 @@ static const struct regval ov9281_1280x800_30fps_regs[] = {
 	{0x3813, 0x08}, /* 1280x800 v offset */
 	{0x3814, 0x11},
 	{0x3815, 0x11},
-#if OV9282_FLIP_ENABLE
 	{0x3820, 0x40},
-	{0x3821, 0x04},
-#else
-	{0x3820, 0x44},
 	{0x3821, 0x00},
-#endif
 	{0x3881, 0x42},
 	{0x38b1, 0x00},
 	{0x3920, 0xff},
@@ -417,12 +412,12 @@ static const struct ov9281_mode supported_modes[] = {
 		.height = 800,
 		.max_fps = {
 			.numerator = 10000,
-			.denominator = 300000,
+			.denominator = 1200000,
 		},
 		.exp_def = 0x0320,
-		.hts_def = 0x02d8,
-		.vts_def = 0x0e48,
-		.reg_list = ov9281_1280x800_30fps_regs,
+		.hts_def = 0x0b60,//0x2d8*4
+		.vts_def = 0x038e,
+		.reg_list = ov9281_1280x800_regs,
 	},
 
 	{
@@ -430,12 +425,12 @@ static const struct ov9281_mode supported_modes[] = {
 		.height = 800,
 		.max_fps = {
 			.numerator = 10000,
-			.denominator = 1200000,
+			.denominator = 300000,
 		},
 		.exp_def = 0x0320,
-		.hts_def = 0x0b60,//0x2d8*4
-		.vts_def = 0x038e,
-		.reg_list = ov9281_1280x800_regs,
+		.hts_def = 0x02d8,
+		.vts_def = 0x0e48,
+		.reg_list = ov9281_1280x800_30fps_regs,
 	},
 };
 
@@ -520,8 +515,12 @@ static int ov9281_read_reg(struct i2c_client *client, u16 reg, unsigned int len,
 	msgs[1].buf = &data_be_p[4 - len];
 
 	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
-	if (ret != ARRAY_SIZE(msgs))
+	if (ret != ARRAY_SIZE(msgs)) {
+		if (ret < 0) {
+			return ret;
+		}
 		return -EIO;
+	}
 
 	*val = be32_to_cpu(data_be);
 
@@ -896,8 +895,13 @@ static int __ov9281_power_on(struct ov9281 *ov9281)
 		return ret;
 	}
 
-	if (!IS_ERR(ov9281->reset_gpio))
-		gpiod_set_value_cansleep(ov9281->reset_gpio, 0);
+	if (!IS_ERR(ov9281->reset_gpio)) {
+		ret = gpiod_direction_output(ov9281->reset_gpio, 0);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable reset gpio\n");
+			return ret;
+		}
+	}
 
 	ret = regulator_bulk_enable(OV9281_NUM_SUPPLIES, ov9281->supplies);
 	if (ret < 0) {
@@ -1189,7 +1193,7 @@ static int ov9281_initialize_controls(struct ov9281 *ov9281)
 	ov9281->strobe = v4l2_ctrl_new_std(handler, &ov9281_ctrl_ops,
 				V4L2_CID_BRIGHTNESS, 1,
 				exposure_max/16, 1,
-				0xc8);
+				exposure_max/16);
 
 	ov9281->test_pattern = v4l2_ctrl_new_std_menu_items(handler,
 				&ov9281_ctrl_ops, V4L2_CID_TEST_PATTERN,
